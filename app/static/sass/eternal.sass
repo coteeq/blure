@@ -1,0 +1,70 @@
+$preview-size: 100px
+$progress-radius: 20
+
+.eternal-progress-bg
+    background: none
+    filter: blur(3px)
+    -moz-filter: blur(3px)
+    -webkit-filter: blur(3px)
+    position: absolute
+    width: $preview-size
+    height: $preview-size
+
+.eternal-progress-svg
+    animation: progress-rotate 2s linear infinite
+    height: $preview-size
+    width: $preview-size
+    position: relative
+
+.eternal-progress-path
+    stroke-dasharray: 0, calc(#{$progress-radius} * 7)
+    stroke-linecap: round
+    stroke: #888a
+    -moz-transition: stroke-dasharray 0.3s ease
+    -webkit-transition: stroke-dasharray 0.3s ease
+    transition: stroke-dasharray 0.3s ease
+
+@keyframes progress-rotate
+    100%
+        transform: rotate(360deg)
+
+.eternal-progress-wrapper
+    display: inline-block
+
+.eternal-progress-status
+    width: 100%
+    text-align: center
+    font-size: 0.9em
+
+.eternal-url
+    position: relative
+    display: inline
+
+.eternal-url-input
+    min-width: 40%
+    color: white
+    background-color: transparent
+    border: 1px solid transparent
+    border-bottom-color: hsla(341, 97%, 59%, 0.2)
+
+.eternal-url-input:focus
+    outline: none
+
+.eternal-url-input::placeholder
+    color: hsla(0, 0%, 100%, 0.3)
+
+.eternal-url-input ~ span
+    position: absolute
+    bottom: 0
+    left: 50%
+    width: 100%
+    height: 1px
+    opacity: 0
+    background-color: #fc2f70
+    transform-origin: center
+    transform: translate(-50%, 0) scaleX(0)
+    transition: all 0.3s ease
+
+.eternal-url-input:focus ~ span
+    transform: translate(-50%, 0) scaleX(1)
+    opacity: 1

@@ -1,0 +1,50 @@
+version: '3'
+services:
+  app:
+    container_name: app
+    build:
+      context: ./..
+      dockerfile: deploy/Dockerfile.dev
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-postgres}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-changeme}
+    networks:
+      - ntwrk
+    depends_on:
+      - pg
+      - ngx
+    volumes:
+      - ./..:/usr/src/app
+      - ngx_img:/var/ngx_img
+    cap_add:
+      - SYS_PTRACE
+
+  pg:
+    container_name: pg
+    image: postgres:alpine
+    volumes:
+      - db_data:/var/lib/postgresql/data
+    networks:
+      - ntwrk
+    ports:
+      - 5432:5432
+    restart: always
+
+  ngx:
+    container_name: ngx
+    image: nginx:alpine
+    networks:
+      - ntwrk
+    ports:
+      - 4000:80
+    restart: always
+    volumes:
+      - ./nginx.conf:/etc/nginx/nginx.conf
+      - ngx_img:/var/ngx_img
+
+networks:
+  ntwrk:
+
+volumes:
+  db_data:
+  ngx_img:

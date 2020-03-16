@@ -1,0 +1,21 @@
+{% extends "base.html.j2" %}
+
+{% block load_scripts %}
+<script type="module" src="/static/js/eternalload.js"></script>
+<script type="module" src="/static/js/load.js"></script>
+<link href="/static/css/eternal.css" rel="stylesheet">
+{% endblock %}
+
+{% block content %}
+
+<div id="template-goes-here">
+</div>
+
+{% for url in picurls %}
+  <a href="/p/{{ url }}">
+  <img src="/t/{{ url }}" alt="{{ url }}" /></a>
+  <form action="/c/delete/{{ url }}" method="POST">
+    <button class="btn" type="submit">rm</button>
+  </form>
+{% endfor %}
+{% endblock %}

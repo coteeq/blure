@@ -1,0 +1,119 @@
+$sidenav-width: 200px
+$primary-fg: #fff
+$primary-bg: #182028
+$pink: #f6c
+
+$preview-size: 100px
+$progress-radius: 20
+
+$monospace: 'Inconsolata'
+
+body
+    background-color: $primary-bg !important
+
+#root
+    font-family: $monospace
+    font-size: 18px
+    margin: auto
+    max-width: 800px
+    padding: 0 1em
+    text-align: justify
+    color: #eee
+
+    img
+        width: 100%
+        margin-bottom: .5rem
+
+a
+    color: #846
+    text-decoration: none
+
+a:hover
+    box-shadow: inset 0 0px 0 white, inset 0 -1px 0 #456
+    //border-bottom: 1px solid black
+
+.profile-description
+    padding: .5rem
+    white-space: pre
+
+.btn
+    background: #283038
+    color: $pink
+    border: 0px
+    border-radius: 2px
+    padding: .2em .4em
+    font-size: 1em
+    font-family: $monospace
+    cursor: pointer
+    text-transform: uppercase
+    letter-spacing: .05em
+    font-weight: 800
+
+.progress-bg
+    background: none
+    filter: blur(3px)
+    -moz-filter: blur(3px)
+    -webkit-filter: blur(3px)
+    position: absolute
+    width: $preview-size
+    height: $preview-size
+
+.progress-svg
+    animation: progress-rotate 2s linear infinite
+    height: $preview-size
+    width: $preview-size
+    position: relative
+
+
+.progress-path
+    stroke-dasharray: 0, calc(#{$progress-radius} * 7)
+    stroke-linecap: round
+    stroke: #888a
+    -moz-transition: stroke-dasharray 0.3s ease
+    -webkit-transition: stroke-dasharray 0.3s ease
+    transition: stroke-dasharray 0.3s ease
+
+@keyframes progress-rotate
+    100%
+        transform: rotate(360deg)
+
+.progress-wrapper
+    display: inline-block
+
+#push-url
+    position: relative
+    display: inline
+
+#push-url-input
+    min-width: 40%
+    color: white
+    background-color: transparent
+    border: 1px solid transparent
+    border-bottom-color: hsla(341, 97%, 59%, 0.2)
+
+#push-url-input:focus
+    outline: none
+
+#push-url-input::placeholder
+    color: hsla(0, 0%, 100%, 0.3)
+
+#push-url-span
+    position: absolute
+    bottom: 0
+    left: 50%
+    width: 100%
+    height: 1px
+    opacity: 0
+    background-color: #fc2f70
+    transform-origin: center
+    transform: translate(-50%, 0) scaleX(0)
+    transition: all 0.3s ease
+
+#push-url-input:focus ~ span
+    transform: translate(-50%, 0) scaleX(1)
+    opacity: 1
+
+.progress-status
+    width: 100%
+    text-align: center
+    font-size: 0.9em

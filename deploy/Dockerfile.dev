@@ -1,0 +1,19 @@
+FROM python:3-alpine
+
+RUN apk add gcc g++ musl-dev make bash python3-dev zlib-dev jpeg-dev
+
+# pip installations are slow, so separate them to cache
+RUN pip3 install sanic
+RUN pip3 install jinja2-sanic
+RUN pip3 install requests
+RUN pip3 install asyncpg
+RUN pip3 install Pillow
+
+
+RUN mkdir /usr/src/app
+
+WORKDIR /usr/src/app
+
+EXPOSE 80
+
+CMD ["python", "run.py"]

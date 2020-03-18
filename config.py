@@ -1,10 +1,14 @@
 from uuid import UUID
+from os import environ
 
 host = '0.0.0.0'
 port = 80
 debug = True
 
-PG_URI = 'postgres://postgres:secure@pg'
+pg_user = environ.get('POSTGRES_USER') or 'postgres'
+pg_pass = environ.get('POSTGRES_PASSWORD') or ''
+PG_URI = f'postgres://{pg_user}:{pg_pass}@pg'
+
 
 APP_SECRET = UUID('8036587d-11ea-4c59-af9b-9da52eded1bc').bytes
 

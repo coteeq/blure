@@ -22,6 +22,9 @@ services:
   pg:
     container_name: pg
     image: postgres:alpine
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-postgres}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-changeme}
     volumes:
       - db_data:/var/lib/postgresql/data
     networks:

@@ -2,9 +2,21 @@ from io import BytesIO
 from .request_routine import db_route
 from sanic.response import text, redirect, json
 from jinja2_sanic import render_template
-from app import log
+from app import log, blure
 from requests import get as fetch_url
 from .imutil import NGXImage
+from .util import URLDecodeError
+from sanic.exceptions import NotFound
+
+
+async def is_image_exists(pg, id: int):
+    rec = await pg.fetchval('SELECT 1 FROM pics WHERE id=$1', id)
+    return rec is not None
+
+
+@blure.exception(NotFound)
+async def not_found(req, exc):
+    return render_template('404.html.j2', req, dict())
 
 
 @db_route('/')
@@ -16,12 +28,13 @@ async def index(ctx):
 
 @db_route('/i/<url>')
 async def raw_image(ctx, url):
-    id = ctx.app.url.to_id(url)
-    if id is None:
+    try:
+        id = ctx.app.url.to_id(url)
+    except URLDecodeError as err:
+        log.warn(f'URL not decoded: {err}')
         return NGXImage.not_found()
 
-    name = await ctx.pg.fetchval('SELECT 1 FROM pics WHERE id=$1', id)
-    if name is None:
+    if not await is_image_exists(ctx.pg, id):
         log.error('Image not in db')
         return NGXImage.not_found()
 
@@ -30,12 +43,12 @@ async def raw_image(ctx, url):
 
 @db_route('/t/<url>')
 async def thumb_image(ctx, url):
-    id = ctx.app.url.to_id(url)
-    if id is None:
+    try:
+        id = ctx.app.url.to_id(url)
+    except URLDecodeError:
         return NGXImage.not_found()
 
-    name = await ctx.pg.fetchval('SELECT 1 FROM pics WHERE id=$1', id)
-    if name is None:
+    if not await is_image_exists(ctx.pg, id):
         log.error('Image not in db')
         return NGXImage.not_found()
 
@@ -44,7 +57,18 @@ async def thumb_image(ctx, url):
 
 @db_route('/p/<url>')
 async def pic_profile(ctx, url):
-    return render_template('profile.html.j2', ctx.r, dict(url=url, tags=[]))
+    log.warn(url)
+    try:
+        id = ctx.app.url.to_id(url)
+        log.warn(id)
+        if await is_image_exists(ctx.pg, id):
+            return render_template('profile.html.j2',
+                                   ctx.r,
+                                   dict(url=url, tags=[]))
+        else:
+            raise NotFound('Url not found')
+    except URLDecodeError:
+        raise NotFound('Invalid url')
 
 
 @db_route('/c/push', methods=['POST'])
@@ -54,7 +78,13 @@ async def pic_push(ctx):
         image_stream = BytesIO(file.body)
         ext = file.name.split('.')[-1]
         id = await ctx.pg.fetchval(
-            'INSERT INTO pics(src_url, ext) VALUES ($1, $2) RETURNING id', '', ext
+            '''
+            INSERT INTO pics(src_url, ext)
+            VALUES ($1, $2)
+            RETURNING id
+            ''',
+            '',
+            ext
         )
 
         im = NGXImage(id)

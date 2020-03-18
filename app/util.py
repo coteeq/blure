@@ -1,8 +1,13 @@
 from base64 import b32encode, b32decode
 import logging
-from hashlib import blake2b  # because it is fast as fuck
+from hashlib import blake2b
+from binascii import Error as Base32DecodeError
 
 log = logging.getLogger('blure')
+
+
+class URLDecodeError(ValueError):
+    pass
 
 
 class URLCoder:
@@ -16,17 +21,21 @@ class URLCoder:
     _endian = 'big'
 
     @classmethod
-    def _humanify(self, data: bytes):
+    def _humanify(cls, data: bytes):
         b32 = b32encode(data).decode('ascii')
-        if self._pad > 0:
-            return b32[:-self._pad]
+        if cls._pad > 0:
+            return b32[:-cls._pad]
         else:
             return b32
 
     @classmethod
-    def _dehumanify(self, data: str):
-        binary = b32decode(data + '=' * self._pad)
-        assert len(binary) == self._bs * 2
+    def _dehumanify(cls, data: str):
+        binary = b32decode(data + '=' * cls._pad)
+        if len(binary) != cls._bs * 2:
+            raise URLDecodeError(
+                f'Padded url len must be exactly {cls._bs * 2} bytes'
+                f'(binary="{binary}", len = {len(binary)})'
+            )
         return binary
 
     def __init__(self, secret: bytes):
@@ -39,13 +48,22 @@ class URLCoder:
         self.reverse_keys = self.keys[::-1]
 
     def to_url(self, id: int) -> str:
-        assert 0 <= id and id <= self._bound
+        if 0 > id or id >= self._bound:
+            raise URLDecodeError(
+                'id(={id}) is outside valid range [0, {self._bound})'
+            )
+
         as_bytes = int.to_bytes(id, self._bs * 2, self._endian)
         encoded = self._blake_enc(as_bytes, self.keys)
+
         return self._humanify(encoded)
 
     def to_id(self, url: str) -> int:
-        binary = self._dehumanify(url.upper())
+        try:
+            binary = self._dehumanify(url.upper())
+        except Base32DecodeError as e:
+            raise URLDecodeError(e)
+
         as_bytes = self._blake_enc(binary, self.reverse_keys)
         return int.from_bytes(as_bytes, self._endian)
 

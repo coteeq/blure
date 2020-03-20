@@ -1,0 +1,3 @@
+deploy:
+
+$ cd deploy && docker-compose up

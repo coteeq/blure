@@ -10,6 +10,10 @@ _NOT_FOUND_IMAGE = blure.config.NOT_FOUND_IMAGE
 _NOT_FOUND_IMAGE_CONTENT_TYPE = blure.config.NOT_FOUND_IMAGE_CONTENT_TYPE
 
 
+class InvalidImageFormat(ValueError):
+    pass
+
+
 class NGXImage:
     def __init__(self, id: int):
         self.filename = blure.url.to_url(id)
@@ -37,7 +41,21 @@ class NGXImage:
                    content_type=_NOT_FOUND_IMAGE_CONTENT_TYPE,
                    status=404)
 
-    def save(self, body: BytesIO):
+    @staticmethod
+    def pillow_format(content_type: str):
+        mapping = {
+            '': 'PNG',  # try png if content type is not available
+            'image/bmp': 'BMP',
+            'image/gif': 'GIF',
+            'image/jpeg': 'JPEG',
+            'image/png': 'PNG'
+        }
+        if content_type in mapping.keys():
+            return mapping[content_type]
+        else:
+            raise InvalidImageFormat(f'{content_type} is not supported')
+
+    def save(self, body: BytesIO, content_type: str):
         image_path = Path(_IMAGE_PATH.format(self.filename))
         thumb_path = Path(_IMAGE_PATH.format(self.filename + '_thumb'))
 
@@ -48,7 +66,7 @@ class NGXImage:
             im = Image.open(body)
             thumb_stream = BytesIO()
             im.thumbnail(blure.config.CUT_SIZES[2])
-            im.save(thumb_stream, format='JPEG')
+            im.save(thumb_stream, format=self.pillow_format(content_type))
             f.write(thumb_stream.getvalue())
 
     def delete_from_disk(self):

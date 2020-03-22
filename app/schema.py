@@ -3,7 +3,7 @@ schema_up = [
     CREATE TABLE IF NOT EXISTS pics (
         id SERIAL PRIMARY KEY UNIQUE,
         src_url VARCHAR(1024),
-        ext VARCHAR(10),
+        content_type VARCHAR(256),
         deleted BOOLEAN
     );
     ''',

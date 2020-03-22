@@ -6,7 +6,7 @@ from app import log, blure
 from requests import get as fetch_url
 from .imutil import NGXImage
 from .util import URLDecodeError
-from sanic.exceptions import NotFound
+from sanic.exceptions import NotFound, InvalidUsage as BadRequest
 
 
 async def is_image_exists(pg, id: int):
@@ -60,7 +60,6 @@ async def pic_profile(ctx, url):
     log.warn(url)
     try:
         id = ctx.app.url.to_id(url)
-        log.warn(id)
         if await is_image_exists(ctx.pg, id):
             return render_template('profile.html.j2',
                                    ctx.r,
@@ -77,9 +76,15 @@ async def pic_push(ctx):
         file = ctx.r.files['im'][0]
         image_stream = BytesIO(file.body)
         ext = file.name.split('.')[-1]
+
+        if len(ctx.r.form['content-type']) != 1:
+            raise BadRequest('Need only one content-type')
+
+        content_type = ctx.r.form['content-type'][0]
+
         id = await ctx.pg.fetchval(
             '''
-            INSERT INTO pics(src_url, ext)
+            INSERT INTO pics(src_url, content_type)
             VALUES ($1, $2)
             RETURNING id
             ''',
@@ -88,7 +93,7 @@ async def pic_push(ctx):
         )
 
         im = NGXImage(id)
-        im.save(image_stream)
+        im.save(image_stream, content_type)
 
         return text('new url is ' + ctx.app.url.to_url(id))
     except KeyError:

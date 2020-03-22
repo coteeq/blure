@@ -74,6 +74,7 @@ class EternalLoad {
                 Array.prototype.forEach.call(input_event.target.files, file => {
                     let data = new FormData();
                     data.append('im', file);
+                    data.append('content-type', file.type)
 
                     let fileno = this.local.total;
                     this.local.total += 1;

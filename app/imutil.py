@@ -1,6 +1,7 @@
 from PIL import Image
 from app import blure
-from sanic.response import raw
+from sanic.response import raw, BaseHTTPResponse
+from sanic.exceptions import NotFound
 from pathlib import Path
 from io import BytesIO
 
@@ -14,32 +15,15 @@ class InvalidImageFormat(ValueError):
     pass
 
 
+async def is_image_exists(id: int):
+    async with blure.pool.acquire() as conn:
+        rec = await conn.fetchval('SELECT TRUE FROM pics WHERE id=$1', id)
+        return rec is not None
+
+
 class NGXImage:
-    def __init__(self, id: int):
-        self.filename = blure.url.to_url(id)
-
-    @staticmethod
-    def _load_pic(filename):
-        p = Path(_IMAGE_PATH.format(filename))
-        if not p.is_file():
-            return NGXImage.not_found()
-
-        return raw(b'',
-                   content_type='image',
-                   headers={'X-Accel-Redirect': _IMAGE_URL.format(filename)},
-                   status=200)
-
-    def orig(self):
-        return self._load_pic(self.filename)
-
-    def thumb(self):
-        return self._load_pic(self.filename + '_thumb')
-
-    @staticmethod
-    def not_found():
-        return raw(_NOT_FOUND_IMAGE,
-                   content_type=_NOT_FOUND_IMAGE_CONTENT_TYPE,
-                   status=404)
+    def __init__(self, from_id: int):
+        self.id = from_id
 
     @staticmethod
     def pillow_format(content_type: str):
@@ -55,25 +39,81 @@ class NGXImage:
         else:
             raise InvalidImageFormat(f'{content_type} is not supported')
 
-    def save(self, body: BytesIO, content_type: str):
-        image_path = Path(_IMAGE_PATH.format(self.filename))
-        thumb_path = Path(_IMAGE_PATH.format(self.filename + '_thumb'))
+    @classmethod
+    async def create_from_bytes(cls, bytes_io: BytesIO, content_type: str):
+        async with blure.pool.acquire() as conn:
+            # TODO: make it a transaction
+            new_id = await conn.fetchval(
+                '''
+                    INSERT INTO pics(src_url, content_type)
+                    VALUES ($1, $2)
+                    RETURNING id
+                ''',
+                '',
+                content_type
+            )
 
-        with image_path.open('wb') as f:
-            f.write(body.getvalue())
+            ngx_image = NGXImage(from_id=new_id)
 
-        with thumb_path.open('wb') as f:
-            im = Image.open(body)
-            thumb_stream = BytesIO()
-            im.thumbnail(blure.config.CUT_SIZES[2])
-            im.save(thumb_stream, format=self.pillow_format(content_type))
-            f.write(thumb_stream.getvalue())
+            with ngx_image.orig_path.open('wb') as f:
+                f.write(bytes_io.getvalue())
+
+            image = Image.open(bytes_io)
+            image.thumbnail(blure.config.CUT_SIZES[2])
+            image.save(
+                ngx_image.thumb_path,
+                format=cls.pillow_format(content_type)
+            )
+
+            return ngx_image
+
+    async def __aenter__(self):
+        if not await is_image_exists(self.id):
+            raise NotFound(
+                f'image {blure.url.to_url(self.id)} does not exist'
+            )
+        else:
+            return self
+
+    async def __aexit__(self, *exc):
+        pass
+
+    @property
+    def orig_path(self):
+        return Path(_IMAGE_PATH.format(blure.url.to_url(self.id)))
+
+    @property
+    def thumb_path(self):
+        return Path(_IMAGE_PATH.format(blure.url.to_url(self.id)) + '_thumb')
+
+    @classmethod
+    def _send_image(cls, filepath: Path) -> BaseHTTPResponse:
+        if not filepath.is_file():
+            return cls.not_found()
+
+        return raw(b'',
+                   content_type='image',
+                   headers={'X-Accel-Redirect': str(filepath)[4:]},  # FIXME: this should NOT be '[4:]' # noqa
+                   status=200)
+
+    def orig(self):
+        return self._send_image(self.orig_path)
+
+    def thumb(self):
+        return self._send_image(self.thumb_path)
+
+    @staticmethod
+    def not_found():
+        return raw(_NOT_FOUND_IMAGE,
+                   content_type=_NOT_FOUND_IMAGE_CONTENT_TYPE,
+                   status=404)
+
+    async def delete_from_db(self):
+        async with blure.pool.acquire() as conn:
+            await conn.execute('DELETE FROM pics WHERE id=$1', self.id)
 
     def delete_from_disk(self):
-        image_path = Path(_IMAGE_PATH.format(self.filename))
-        thumb_path = Path(_IMAGE_PATH.format(self.filename + '_thumb'))
-
-        if image_path.exists():
-            image_path.unlink()
-        if thumb_path.exists():
-            thumb_path.unlink()
+        if self.orig_path.exists():
+            self.orig_path.unlink()
+        if self.thumb_path.exists():
+            self.thumb_path.unlink()

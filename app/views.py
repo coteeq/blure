@@ -29,13 +29,13 @@ async def index(ctx):
 @db_route('/i/<url>')
 async def raw_image(ctx, url):
     async with NGXImage(blure.url.to_id(url)) as image:
-        return image.orig()
+        return image.send_image('o')
 
 
 @db_route('/t/<url>')
 async def thumb_image(ctx, url):
     async with NGXImage(blure.url.to_id(url)) as image:
-        return image.orig()
+        return image.send_image('m')
 
 
 @db_route('/p/<url>')

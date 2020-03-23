@@ -55,13 +55,13 @@ class NGXImage:
 
             ngx_image = NGXImage(from_id=new_id)
 
-            with ngx_image.orig_path.open('wb') as f:
+            with ngx_image.make_path('o').open('wb') as f:
                 f.write(bytes_io.getvalue())
 
             image = Image.open(bytes_io)
-            image.thumbnail(blure.config.CUT_SIZES[2])
+            image.thumbnail(blure.config.CUT_SIZES['m'])
             image.save(
-                ngx_image.thumb_path,
+                ngx_image.make_path('m'),
                 format=cls.pillow_format(content_type)
             )
 
@@ -78,29 +78,20 @@ class NGXImage:
     async def __aexit__(self, *exc):
         pass
 
-    @property
-    def orig_path(self):
-        return Path(_IMAGE_PATH.format(blure.url.to_url(self.id)))
+    def make_path(self, size: str='o') -> Path:
+        return _IMAGE_PATH / Path(blure.url.to_url(self.id) + size)
 
-    @property
-    def thumb_path(self):
-        return Path(_IMAGE_PATH.format(blure.url.to_url(self.id)) + '_thumb')
+    def make_url(self, size: str='o') -> Path:
+        return _IMAGE_URL / Path(blure.url.to_url(self.id) + size)
 
-    @classmethod
-    def _send_image(cls, filepath: Path) -> BaseHTTPResponse:
-        if not filepath.is_file():
-            return cls.not_found()
+    def send_image(self, size: str='o') -> BaseHTTPResponse:
+        if not self.make_path(size).is_file():
+            return self.not_found()
 
         return raw(b'',
                    content_type='image',
-                   headers={'X-Accel-Redirect': str(filepath)[4:]},  # FIXME: this should NOT be '[4:]' # noqa
+                   headers={'X-Accel-Redirect': self.make_url(size)},
                    status=200)
-
-    def orig(self):
-        return self._send_image(self.orig_path)
-
-    def thumb(self):
-        return self._send_image(self.thumb_path)
 
     @staticmethod
     def not_found():
@@ -113,7 +104,7 @@ class NGXImage:
             await conn.execute('DELETE FROM pics WHERE id=$1', self.id)
 
     def delete_from_disk(self):
-        if self.orig_path.exists():
-            self.orig_path.unlink()
-        if self.thumb_path.exists():
-            self.thumb_path.unlink()
+        for cut_name in blure.config.CUT_SIZES.keys():
+            path = self.make_path(cut_name)
+            if path.exists():
+                path.unlink()
